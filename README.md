@@ -61,16 +61,50 @@ http://localhost:8000
 
 ## Telegram Integration
 
-The app integrates with OpenClaw to send debate summaries to your Telegram bot:
+The app integrates with Telegram to send debate results. You can start debates from Telegram in two ways:
 
-1. Configure your Telegram bot token and chat ID in [server.js](server.js#L40-L44)
-2. When a debate completes, you'll receive a notification with:
-   - Debate topic
-   - Participating models
-   - Judge's verdict and scoring
-   - Link to view full results in browser
+### Method 1: Via OpenClaw (Recommended)
 
-To disable Telegram notifications, set `TELEGRAM_CONFIG.enabled = false` in server.js.
+Since OpenClaw is already managing your Telegram bot, you can trigger debates through it:
+
+1. **Tell Claude via Telegram**: Message your bot through OpenClaw:
+   ```
+   Run a debate on: Should AI be regulated?
+   ```
+
+2. **Have Claude execute**: Ask OpenClaw to run:
+   ```bash
+   curl -X POST http://localhost:8000/api/telegram-debate \
+     -H "Content-Type: application/json" \
+     -d '{"topic": "Should AI be regulated?", "chatId": "5020580594"}'
+   ```
+
+3. **Create a skill**: Copy [openclaw-skill-debate.md](openclaw-skill-debate.md) to your OpenClaw skills directory
+
+### Method 2: Direct Bot Polling (OpenClaw must be stopped)
+
+If you're not using OpenClaw:
+
+1. Stop OpenClaw gateway: `pkill openclaw-gateway`
+2. Enable polling in [server.js](server.js#L46): Set `enablePolling: true`
+3. Restart debate server
+4. Use Telegram commands:
+   - `/start` - Show help
+   - `/debate <topic>` - Start a debate
+
+### What You Get
+
+When a debate starts (via any method), you receive:
+- 🏛️ Debate start notification with topic and models
+- 🔄 Round 1, 2, 3 progress updates
+- ✅ Round completion confirmations
+- ⚖️ Judge's final verdict and scoring
+
+### Configuration
+
+- Bot token, chat ID, and authorized users: [server.js](server.js#L42-L47)
+- Disable Telegram: Set `TELEGRAM_CONFIG.enabled = false`
+- Browser access at http://localhost:8000 works independently
 
 ## Usage
 
