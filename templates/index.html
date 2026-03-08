@@ -28,6 +28,7 @@
     font-family: 'Segoe UI', system-ui, sans-serif;
     min-height: 100vh;
     display: flex;
+    position: relative;
   }
 
   /* ── Sidebar ── */
@@ -38,6 +39,23 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: transform 0.3s ease;
+    z-index: 100;
+  }
+  
+  /* Mobile: sidebar overlay */
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      transform: translateX(-100%);
+      box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+    }
+    .sidebar.open {
+      transform: translateX(0);
+    }
   }
   .sidebar-header {
     padding: 20px;
@@ -92,6 +110,42 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
+  }
+
+  /* Mobile menu toggle */
+  .menu-toggle {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 99;
+    transition: transform 0.2s;
+  }
+  .menu-toggle:active { transform: scale(0.95); }
+  
+  @media (max-width: 768px) {
+    .menu-toggle { display: flex; align-items: center; justify-content: center; }
+  }
+  
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+  }
+  @media (max-width: 768px) {
+    .sidebar-overlay.visible { display: block; }
   }
 
   /* ── Header ── */
@@ -104,12 +158,21 @@
     gap: 16px;
     flex-shrink: 0;
   }
+  @media (max-width: 768px) {
+    header { padding: 16px 20px; }
+    header .logo { font-size: 24px; }
+    header h1 { font-size: 18px; }
+    header p { font-size: 12px; }
+  }
   header .logo { font-size: 28px; }
   header h1 { font-size: 22px; font-weight: 700; color: var(--text); }
   header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
   /* ── Main layout ── */
   main { flex: 1; overflow-y: auto; max-width: 1600px; margin: 0 auto; padding: 28px 24px; width: 100%; }
+  @media (max-width: 768px) {
+    main { padding: 16px 12px; }
+  }
 
   /* ── Question card ── */
   .question-card {
@@ -119,9 +182,18 @@
     padding: 24px;
     margin-bottom: 24px;
   }
+  @media (max-width: 768px) {
+    .question-card { padding: 16px; margin-bottom: 16px; }
+  }
   .question-card h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+  @media (max-width: 768px) {
+    .question-card h2 { font-size: 13px; margin-bottom: 10px; }
+  }
 
   .input-row { display: flex; gap: 12px; }
+  @media (max-width: 768px) {
+    .input-row { flex-direction: column; gap: 8px; }
+  }
   textarea#topic {
     flex: 1;
     background: var(--surface2);
@@ -151,6 +223,13 @@
     white-space: nowrap;
     transition: opacity 0.2s, transform 0.1s;
     align-self: flex-end;
+  }
+  @media (max-width: 768px) {
+    button#startBtn { 
+      align-self: stretch; 
+      padding: 14px 28px;
+      font-size: 16px;
+    }
   }
   button#startBtn:hover { opacity: 0.88; }
   button#startBtn:active { transform: scale(0.97); }
@@ -187,6 +266,9 @@
     margin-bottom: 16px;
     flex-wrap: wrap;
   }
+  @media (max-width: 768px) {
+    .round-tabs { gap: 4px; margin-bottom: 12px; }
+  }
   .round-tab {
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -197,6 +279,9 @@
     cursor: pointer;
     transition: all 0.15s;
     user-select: none;
+  }
+  @media (max-width: 768px) {
+    .round-tab { padding: 8px 14px; font-size: 12px; }
   }
   .round-tab:hover { border-color: var(--accent); color: var(--text); }
   .round-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
@@ -210,7 +295,10 @@
     gap: 16px;
     margin-bottom: 24px;
   }
-  @media (max-width: 900px) { .debate-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 1200px) { .debate-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px) { 
+    .debate-grid { grid-template-columns: 1fr; gap: 12px; }
+  }
 
   /* ── Debater card ── */
   .debater-card {
@@ -320,15 +408,30 @@
     margin-bottom: 24px;
     font-size: 13px;
   }
+  @media (max-width: 768px) {
+    .legend { 
+      padding: 12px 16px; 
+      gap: 12px; 
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+  }
   .legend-item { display: flex; align-items: center; gap: 8px; }
+  @media (max-width: 768px) {
+    .legend-item { gap: 6px; }\n    .legend-role { display: none; }
+  }
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .legend-role { color: var(--muted); margin-left: 2px; }
 </style>
 </head>
 <body>
 
+<!-- Mobile menu toggle -->
+<button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <!-- Sidebar -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <h3>💾 Debate History</h3>
     <button onclick="clearHistory()">Clear All</button>
@@ -843,7 +946,27 @@ function handleEvent(type, data) {
     }
   }
 }
+// ── Sidebar mobile controls ─────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('visible');
+}
 
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('visible');
+}
+
+// Auto-close sidebar when loading a debate on mobile
+const originalLoadDebate = loadDebate;
+loadDebate = function(id) {
+  originalLoadDebate(id);
+  if (window.innerWidth <= 768) {
+    closeSidebar();
+  }
+};
 // ── Enter key submits ──────────────────────────────────────────────────────
 document.getElementById('topic').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startDebate(); }
