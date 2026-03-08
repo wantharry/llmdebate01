@@ -1,0 +1,14 @@
+{
+  "name": "llm-debate-arena",
+  "version": "1.0.0",
+  "description": "Debate arena for local LLMs via Ollama",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

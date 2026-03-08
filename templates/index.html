@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LLM Debate Arena</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --text: #e2e6f3;
+    --muted: #7880a0;
+    --accent: #5b7fff;
+    --llama31: #4f8ef7;
+    --mistral: #e05c3a;
+    --llama3: #3db87a;
+    --judge: #c77dff;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .sidebar-header button {
+    width: 100%;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .sidebar-header button:hover { background: var(--border); }
+  .history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .history-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .history-item:hover { border-color: var(--accent); background: var(--border); }
+  .history-item.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .history-topic { font-size: 13px; font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-date { font-size: 11px; opacity: 0.7; }
+  .history-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* ── Main container ── */
+  .main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #1a1d27 0%, #12162b 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  header .logo { font-size: 28px; }
+  header h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+  header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Main layout ── */
+  main { flex: 1; overflow-y: auto; max-width: 1600px; margin: 0 auto; padding: 28px 24px; width: 100%; }
+
+  /* ── Question card ── */
+  .question-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .question-card h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  .input-row { display: flex; gap: 12px; }
+  textarea#topic {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 56px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea#topic:focus { border-color: var(--accent); }
+  textarea#topic::placeholder { color: var(--muted); }
+
+  button#startBtn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s, transform 0.1s;
+    align-self: flex-end;
+  }
+  button#startBtn:hover { opacity: 0.88; }
+  button#startBtn:active { transform: scale(0.97); }
+  button#startBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Status bar ── */
+  #statusBar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #statusBar.visible { display: flex; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Round tabs ── */
+  .round-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .round-tab {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .round-tab:hover { border-color: var(--accent); color: var(--text); }
+  .round-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .round-tab.done   { border-color: #3db87a55; color: #3db87a; }
+  .round-tab.active.done { background: var(--accent); color: #fff; }
+
+  /* ── Debate grid ── */
+  .debate-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) { .debate-grid { grid-template-columns: 1fr; } }
+
+  /* ── Debater card ── */
+  .debater-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .debater-header {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .debater-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .debater-name { font-weight: 700; font-size: 15px; }
+  .debater-model { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .debater-status {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--surface2);
+    color: var(--muted);
+  }
+  .debater-status.thinking { color: #f7c948; background: #f7c94822; }
+  .debater-status.done     { color: #3db87a; background: #3db87a22; }
+
+  .round-content-area {
+    padding: 16px;
+    min-height: 200px;
+    flex: 1;
+  }
+  .round-panel { display: none; }
+  .round-panel.visible { display: block; }
+
+  .debate-text {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .debate-text.streaming::after,
+  .summary-body.streaming::after {
+    content: '▍';
+    animation: blink 0.7s step-end infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .placeholder-text {
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  /* ── Summary section ── */
+  .summary-section {
+    background: var(--surface);
+    border: 1px solid #c77dff44;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .summary-header {
+    padding: 16px 20px;
+    background: linear-gradient(90deg, #c77dff15, transparent);
+    border-bottom: 1px solid #c77dff33;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .summary-header .judge-icon { font-size: 22px; }
+  .summary-header h3 { font-size: 16px; font-weight: 700; color: #c77dff; }
+  .summary-header p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .summary-body {
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 80px;
+  }
+  .summary-body .placeholder-text { color: var(--muted); font-size: 13px; font-style: italic; }
+
+  /* markdown-ish bold */
+  .md-bold { font-weight: 700; color: #e2e6f3; }
+
+  /* ── Model legend ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    font-size: 13px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-role { color: var(--muted); margin-left: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <h3>💾 Debate History</h3>
+    <button onclick="clearHistory()">Clear All</button>
+  </div>
+  <div class="history-list" id="historyList">
+    <div class="history-empty">No debates yet</div>
+  </div>
+</aside>
+
+<div class="main-container">
+
+<header>
+  <div class="logo">⚔️</div>
+  <div>
+    <h1>LLM Debate Arena</h1>
+    <p>Three models debate your question — judged by the most capable model in the room</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- Model legend -->
+  <div class="legend" id="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#e05c3a"></div>
+      <span><b>Mistral 7B</b> <span class="legend-role">mistral:latest</span></span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#3db87a"></div>
+      <span><b>Llama 3.2 3B</b> <span class="legend-role">llama3.2:3b</span></span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#8b5cf6"></div>
+      <span><b>Qwen 2.5 7B</b> <span class="legend-role">qwen2.5:7b</span></span>
+    </div>
+    <div class="legend-item" style="margin-left:auto">
+      <div class="legend-dot" style="background:#c77dff"></div>
+      <span><b>Llama 3.1 8B</b> <span class="legend-role">Judge / Summarizer</span></span>
+    </div>
+  </div>
+
+  <!-- Question input -->
+  <div class="question-card">
+    <h2>Debate Topic</h2>
+    <div class="input-row">
+      <textarea id="topic" rows="2"
+        placeholder="Enter a debate topic or question… e.g. 'Is artificial general intelligence possible within 10 years?'"></textarea>
+      <button id="startBtn" onclick="startDebate()">Start Debate ▶</button>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div id="statusBar">
+    <div class="spinner"></div>
+    <span id="statusText">Initialising…</span>
+  </div>
+
+  <!-- Round tabs -->
+  <div class="round-tabs" id="roundTabs" style="display:none">
+    <div class="round-tab" id="tab-opening"  onclick="showRound('opening')">Opening Statements</div>
+    <div class="round-tab" id="tab-rebuttal" onclick="showRound('rebuttal')">Rebuttals</div>
+    <div class="round-tab" id="tab-closing"  onclick="showRound('closing')">Closing Arguments</div>
+  </div>
+
+  <!-- Debate grid -->
+  <div class="debate-grid" id="debateGrid" style="display:none">
+
+    <!-- Mistral 7B -->
+    <div class="debater-card" id="card-mistral:latest">
+      <div class="debater-header">
+        <div class="debater-dot" style="background:#e05c3a"></div>
+        <div>
+          <div class="debater-name">Mistral 7B</div>
+          <div class="debater-model">mistral:latest</div>
+        </div>
+        <div class="debater-status" id="status-mistral:latest">Waiting</div>
+      </div>
+      <div class="round-content-area">
+        <div class="round-panel" id="panel-mistral:latest-opening">
+          <div class="debate-text placeholder-text">Opening statement will appear here…</div>
+        </div>
+        <div class="round-panel" id="panel-mistral:latest-rebuttal">
+          <div class="debate-text placeholder-text">Rebuttal will appear here…</div>
+        </div>
+        <div class="round-panel" id="panel-mistral:latest-closing">
+          <div class="debate-text placeholder-text">Closing argument will appear here…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Llama 3.2 3B -->
+    <div class="debater-card" id="card-llama3.2:3b">
+      <div class="debater-header">
+        <div class="debater-dot" style="background:#3db87a"></div>
+        <div>
+          <div class="debater-name">Llama 3.2 3B</div>
+          <div class="debater-model">llama3.2:3b</div>
+        </div>
+        <div class="debater-status" id="status-llama3.2:3b">Waiting</div>
+      </div>
+      <div class="round-content-area">
+        <div class="round-panel" id="panel-llama3.2:3b-opening">
+          <div class="debate-text placeholder-text">Opening statement will appear here…</div>
+        </div>
+        <div class="round-panel" id="panel-llama3.2:3b-rebuttal">
+          <div class="debate-text placeholder-text">Rebuttal will appear here…</div>
+        </div>
+        <div class="round-panel" id="panel-llama3.2:3b-closing">
+          <div class="debate-text placeholder-text">Closing argument will appear here…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Qwen 2.5 7B -->
+    <div class="debater-card" id="card-qwen2.5:7b">
+      <div class="debater-header">
+        <div class="debater-dot" style="background:#8b5cf6"></div>
+        <div>
+          <div class="debater-name">Qwen 2.5 7B</div>
+          <div class="debater-model">qwen2.5:7b</div>
+        </div>
+        <div class="debater-status" id="status-qwen2.5:7b">Waiting</div>
+      </div>
+      <div class="round-content-area">
+        <div class="round-panel" id="panel-qwen2.5:7b-opening">
+          <div class="debate-text placeholder-text">Opening statement will appear here…</div>
+        </div>
+        <div class="round-panel" id="panel-qwen2.5:7b-rebuttal">
+          <div class="debate-text placeholder-text">Rebuttal will appear here…</div>
+        </div>
+        <div class="round-panel" id="panel-qwen2.5:7b-closing">
+          <div class="debate-text placeholder-text">Closing argument will appear here…</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /debate-grid -->
+
+  <!-- Summary -->
+  <div class="summary-section" id="summarySection" style="display:none">
+    <div class="summary-header">
+      <div class="judge-icon">🏛️</div>
+      <div>
+        <h3>Judge's Analysis &amp; Verdict</h3>
+        <p>Llama 3.1 8B — impartial analysis of the full debate</p>
+      </div>
+      <div class="debater-status" id="judgeStatus" style="margin-left:auto">Waiting</div>
+    </div>
+    <div class="summary-body" id="summaryBody">
+      <span class="placeholder-text">The judge will deliver their verdict after all rounds are complete…</span>
+    </div>
+  </div>
+
+</main>
+
+</div><!-- /main-container -->
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentRound = 'opening';
+let roundsDone   = new Set();
+
+const ROUNDS = ['opening', 'rebuttal', 'closing'];
+const MODELS = ['mistral:latest', 'llama3.2:3b', 'qwen2.5:7b'];
+
+// raw text per model per round
+const debateData = {};
+MODELS.forEach(m => { debateData[m] = {}; ROUNDS.forEach(r => { debateData[m][r] = ''; }); });
+
+// raw text for judge summary
+let summaryRaw = '';
+
+// current debate ID for history
+let currentDebateId = null;
+
+// ── History management ────────────────────────────────────────────────────
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem('debateHistory') || '[]');
+  const list = document.getElementById('historyList');
+  if (history.length === 0) {
+    list.innerHTML = '<div class="history-empty">No debates yet</div>';
+    return;
+  }
+  list.innerHTML = history.map((item, idx) => `
+    <div class="history-item" onclick="loadDebate('${item.id}')">
+      <div class="history-topic">${escapeHtmlForDisplay(item.topic)}</div>
+      <div class="history-date">${new Date(item.timestamp).toLocaleString()}</div>
+    </div>
+  `).join('');
+}
+
+function saveDebate(topic, transcript, summary) {
+  const history = JSON.parse(localStorage.getItem('debateHistory') || '[]');
+  const id = Date.now().toString();
+  currentDebateId = id;
+  history.unshift({ id, topic, transcript, summary, timestamp: Date.now() });
+  // Keep only last 50
+  if (history.length > 50) history.length = 50;
+  localStorage.setItem('debateHistory', JSON.stringify(history));
+  loadHistory();
+}
+
+function loadDebate(id) {
+  const history = JSON.parse(localStorage.getItem('debateHistory') || '[]');
+  const debate = history.find(d => d.id === id);
+  if (!debate) return;
+  currentDebateId = id;
+  
+  // Populate topic
+  document.getElementById('topic').value = debate.topic;
+  
+  // Show UI
+  document.getElementById('roundTabs').style.display = 'flex';
+  document.getElementById('debateGrid').style.display = 'grid';
+  document.getElementById('summarySection').style.display = 'block';
+  showRound('opening');
+  
+  // Load transcript
+  MODELS.forEach(m => {
+    ROUNDS.forEach(r => {
+      debateData[m][r] = debate.transcript[m]?.[r] || '';
+      const panel = document.getElementById(`panel-${m}-${r}`);
+      if (panel) {
+        panel.replaceChildren();
+        const el = document.createElement('div');
+        el.className = 'debate-text';
+        setTextContent(el, debateData[m][r]);
+        panel.appendChild(el);
+      }
+    });
+    const statusEl = document.getElementById(`status-${m}`);
+    if (statusEl) { statusEl.textContent = 'Done'; statusEl.className = 'debater-status done'; }
+  });
+  
+  // Load summary
+  summaryRaw = debate.summary || '';
+  const body = document.getElementById('summaryBody');
+  body.replaceChildren();
+  setTextContent(body, summaryRaw);
+  document.getElementById('judgeStatus').textContent = 'Verdict delivered';
+  document.getElementById('judgeStatus').className = 'debater-status done';
+  
+  // Mark all rounds done
+  roundsDone.clear();
+  ROUNDS.forEach(r => {
+    roundsDone.add(r);
+    const tab = document.getElementById('tab-' + r);
+    if (tab) { tab.classList.add('done'); }
+  });
+  
+  // Highlight active history item
+  document.querySelectorAll('.history-item').forEach((el, idx) => {
+    el.classList.toggle('active', history[idx].id === id);
+  });
+}
+
+function clearHistory() {
+  if (!confirm('Clear all debate history?')) return;
+  localStorage.removeItem('debateHistory');
+  loadHistory();
+}
+
+function escapeHtmlForDisplay(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('statusText').textContent = msg;
+}
+
+function showRound(round) {
+  currentRound = round;
+  ROUNDS.forEach(r => {
+    const tab = document.getElementById('tab-' + r);
+    if (tab) {
+      tab.classList.toggle('active', r === round);
+    }
+    MODELS.forEach(m => {
+      const panel = document.getElementById(`panel-${m}-${r}`);
+      if (panel) panel.classList.toggle('visible', r === round);
+    });
+  });
+}
+
+function getOrCreateTextEl(modelId, round) {
+  const panel = document.getElementById(`panel-${modelId}-${round}`);
+  // Always wipe the panel and use a single fresh element per model_start
+  let el = panel.querySelector('.debate-text:not(.placeholder-text)');
+  if (!el) {
+    panel.replaceChildren();
+    el = document.createElement('div');
+    el.className = 'debate-text';
+    panel.appendChild(el);
+  }
+  return el;
+}
+
+function scrollCardToBottom(modelId) {
+  const card = document.getElementById(`card-${modelId}`);
+  if (card) {
+    const area = card.querySelector('.round-content-area');
+    if (area) area.scrollTop = area.scrollHeight;
+  }
+}
+
+function setTextContent(el, text) {
+  // Split on **bold** markers and build DOM nodes — no innerHTML risk
+  el.replaceChildren();
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  for (const part of parts) {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const b = document.createElement('b');
+      b.textContent = part.slice(2, -2);
+      el.appendChild(b);
+    } else {
+      el.appendChild(document.createTextNode(part));
+    }
+  }
+}
+
+// ── Main debate launch ─────────────────────────────────────────────────────
+async function startDebate() {
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) { alert('Please enter a debate topic.'); return; }
+
+  // Reset state
+  MODELS.forEach(m => {
+    ROUNDS.forEach(r => {
+      debateData[m][r] = '';
+      const panel = document.getElementById(`panel-${m}-${r}`);
+      panel.replaceChildren();
+      const ph = document.createElement('div');
+      ph.className = 'debate-text placeholder-text';
+      ph.textContent = 'Waiting\u2026';
+      panel.appendChild(ph);
+    });
+    document.getElementById(`status-${m}`).textContent = 'Waiting';
+    document.getElementById(`status-${m}`).className = 'debater-status';
+  });
+  const body = document.getElementById('summaryBody');
+  body.replaceChildren();
+  const ph2 = document.createElement('span');
+  ph2.className = 'placeholder-text';
+  ph2.textContent = 'Judge is preparing\u2026';
+  body.appendChild(ph2);
+  document.getElementById('judgeStatus').textContent = 'Waiting';
+  summaryRaw = '';
+  roundsDone.clear();
+  ROUNDS.forEach(r => {
+    const tab = document.getElementById('tab-' + r);
+    if (tab) { tab.classList.remove('done', 'active'); }
+  });
+
+  // Show UI
+  document.getElementById('roundTabs').style.display = 'flex';
+  document.getElementById('debateGrid').style.display = 'grid';
+  document.getElementById('summarySection').style.display = 'block';
+  const statusBar = document.getElementById('statusBar');
+  statusBar.classList.add('visible');
+
+  document.getElementById('startBtn').disabled = true;
+  showRound('opening');
+
+  try {
+    const resp = await fetch('/debate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const events = buffer.split('\n\n');
+      buffer = events.pop(); // keep incomplete last chunk
+
+      for (const raw of events) {
+        const lines = raw.trim().split('\n');
+        let eventType = 'message', dataStr = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+          if (line.startsWith('data: '))  dataStr   = line.slice(6).trim();
+        }
+        if (!dataStr) continue;
+        let data;
+        try { data = JSON.parse(dataStr); } catch { continue; }
+        handleEvent(eventType, data);
+      }
+    }
+  } catch (err) {
+    setStatus('Error: ' + err.message);
+  } finally {
+    document.getElementById('startBtn').disabled = false;
+  }
+}
+
+// ── SSE event handler ──────────────────────────────────────────────────────
+function handleEvent(type, data) {
+  switch (type) {
+
+    case 'round_start': {
+      setStatus(`Round: ${data.label}`);
+      showRound(data.round);
+      const tab = document.getElementById('tab-' + data.round);
+      if (tab) tab.classList.add('active');
+      break;
+    }
+
+    case 'model_start': {
+      const statusEl = document.getElementById(`status-${data.model_id}`);
+      if (statusEl) { statusEl.textContent = 'Speaking…'; statusEl.className = 'debater-status thinking'; }
+      setStatus(`${data.model_name} is speaking (${data.round})…`);
+      // Reset accumulator and create a fresh text element
+      const mid = data.model_id;
+      const rnd = data.round;
+      if (!debateData[mid]) debateData[mid] = {};
+      debateData[mid][rnd] = '';
+      const panel = document.getElementById(`panel-${mid}-${rnd}`);
+      if (!panel) {
+        console.warn(`Panel not found for ${mid}-${rnd}`);
+        break;
+      }
+      panel.replaceChildren();
+      const el = document.createElement('div');
+      el.className = 'debate-text streaming';
+      panel.appendChild(el);
+      break;
+    }
+
+    case 'chunk': {
+      const mid = data.model_id;
+      const rnd = data.round;
+      // Ensure structure exists (defensive)
+      if (!debateData[mid]) debateData[mid] = {};
+      if (!debateData[mid][rnd]) debateData[mid][rnd] = '';
+      debateData[mid][rnd] += data.text;
+      const el = getOrCreateTextEl(mid, rnd);
+      setTextContent(el, debateData[mid][rnd]);
+      scrollCardToBottom(mid);
+      break;
+    }
+
+    case 'model_end': {
+      const el = getOrCreateTextEl(data.model_id, data.round);
+      el.classList.remove('streaming');
+      const statusEl = document.getElementById(`status-${data.model_id}`);
+      if (statusEl) { statusEl.textContent = 'Done'; statusEl.className = 'debater-status done'; }
+      break;
+    }
+
+    case 'round_end': {
+      roundsDone.add(data.round);
+      const tab = document.getElementById('tab-' + data.round);
+      if (tab) tab.classList.add('done');
+      MODELS.forEach(m => {
+        const statusEl = document.getElementById(`status-${m}`);
+        if (statusEl) { statusEl.textContent = 'Ready'; statusEl.className = 'debater-status'; }
+      });
+      break;
+    }
+
+    case 'summary_start': {
+      setStatus(`${data.model_name} is writing the verdict…`);
+      const judgeEl = document.getElementById('judgeStatus');
+      judgeEl.textContent = 'Judging…'; judgeEl.className = 'debater-status thinking';
+      summaryRaw = '';
+      const body = document.getElementById('summaryBody');
+      body.replaceChildren();
+      body.classList.add('streaming');
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      break;
+    }
+
+    case 'summary_chunk': {
+      summaryRaw += data.text;
+      const body = document.getElementById('summaryBody');
+      setTextContent(body, summaryRaw);
+      body.scrollTop = body.scrollHeight;
+      break;
+    }
+
+    case 'summary_end': {
+      const body = document.getElementById('summaryBody');
+      body.classList.remove('streaming');
+      const judgeEl = document.getElementById('judgeStatus');
+      judgeEl.textContent = 'Verdict delivered'; judgeEl.className = 'debater-status done';
+      break;
+    }
+
+    case 'done': {
+      setStatus(`Debate on "${data.topic}" complete.`);
+      document.getElementById('statusBar').classList.remove('visible');
+      // Save to history
+      const transcript = {};
+      MODELS.forEach(m => { transcript[m] = { ...debateData[m] }; });
+      saveDebate(data.topic, transcript, summaryRaw);
+      break;
+    }
+
+    case 'error': {
+      setStatus(`Error from ${data.model_id} (${data.round}): ${data.message}`);
+      console.error('Debate error:', data);
+      break;
+    }
+  }
+}
+
+// ── Enter key submits ──────────────────────────────────────────────────────
+document.getElementById('topic').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startDebate(); }
+});
+
+// ── Load history on page load ───────────────────────────────────────────────
+loadHistory();
+</script>
+</body>
+</html>
