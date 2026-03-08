@@ -37,6 +37,44 @@ async function getOllamaUrl() {
 const OLLAMA_URL = await getOllamaUrl();
 console.log(`[debate] Ollama at: ${OLLAMA_URL}`);
 
+// ── Telegram integration ─────────────────────────────────────────────────────
+
+const TELEGRAM_CONFIG = {
+  enabled: true,
+  botToken: '8600726380:AAG6P_cPHVimZW4-LxjUsVWXmtCnGq2rDcw',
+  chatId: '5020580594', // Your Telegram user ID
+};
+
+/**
+ * Send a message to Telegram bot
+ * @param {string} text - Message text (supports HTML formatting)
+ */
+async function sendTelegramNotification(text) {
+  if (!TELEGRAM_CONFIG.enabled) return;
+
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_CONFIG.botToken}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CONFIG.chatId,
+        text: text,
+        parse_mode: 'HTML',
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error(`[telegram] Failed to send: ${response.status}`);
+    } else {
+      console.log('[telegram] Notification sent successfully');
+    }
+  } catch (err) {
+    console.error(`[telegram] Error sending notification: ${err.message}`);
+  }
+}
+
 // ── Model roster ─────────────────────────────────────────────────────────────
 
 const DEBATERS = [
@@ -131,6 +169,8 @@ async function runDebate(topic, res) {
   // transcript[modelId][roundKey] = full text
   const transcript = {};
   for (const d of DEBATERS) { transcript[d.id] = {}; }
+  
+  let fullSummary = ''; // Collect judge summary for Telegram
 
   for (const round of ROUNDS) {
     send(res, 'round_start', { round: round.key, label: round.label });
@@ -215,6 +255,7 @@ async function runDebate(topic, res) {
 
   try {
     for await (const chunk of streamOllama(SUMMARIZER.id, judgeMessages)) {
+      fullSummary += chunk;
       send(res, 'summary_chunk', { text: chunk });
     }
   } catch (err) {
@@ -222,6 +263,27 @@ async function runDebate(topic, res) {
   }
 
   send(res, 'summary_end', {});
+  send(res, 'done', { topic });
+  res.end();
+  
+  // Send Telegram notification with debate results
+  const telegramMessage = `
+🏛️ <b>LLM Debate Complete</b>
+
+📋 <b>Topic:</b> ${topic}
+
+🤖 <b>Debaters:</b>
+${DEBATERS.map(d => `• ${d.name}`).join('\n')}
+
+⚖️ <b>Judge:</b> ${SUMMARIZER.name}
+
+${fullSummary.length > 800 ? fullSummary.substring(0, 800) + '...\n\n<i>(Full results at http://localhost:8000)</i>' : fullSummary}
+`.trim();
+  
+  // Send notification asynchronously (don't block response)
+  sendTelegramNotification(telegramMessage).catch(err => 
+    console.error('[debate] Failed to send Telegram notification:', err)
+  , 'summary_end', {});
   send(res, 'done', { topic });
   res.end();
 }

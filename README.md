@@ -9,6 +9,8 @@ A real-time debate platform where multiple local LLMs debate a topic through str
 - **Live Streaming**: Watch the debate unfold in real-time with streaming text
 - **Debate History**: All debates auto-saved to localStorage, last 50 kept
 - **Organized View**: Switch between rounds with tabs, side-by-side comparison
+- **Telegram Notifications**: Get debate results sent to your Telegram via OpenClaw bot
+- **Mobile Responsive**: Works seamlessly on phones, tablets, and desktops
 
 ## Models
 
@@ -56,6 +58,19 @@ node server.js
 ```
 http://localhost:8000
 ```
+
+## Telegram Integration
+
+The app integrates with OpenClaw to send debate summaries to your Telegram bot:
+
+1. Configure your Telegram bot token and chat ID in [server.js](server.js#L40-L44)
+2. When a debate completes, you'll receive a notification with:
+   - Debate topic
+   - Participating models
+   - Judge's verdict and scoring
+   - Link to view full results in browser
+
+To disable Telegram notifications, set `TELEGRAM_CONFIG.enabled = false` in server.js.
 
 ## Usage
 
